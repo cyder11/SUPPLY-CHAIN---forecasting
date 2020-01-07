@@ -1,0 +1,398 @@
+---
+title: "Demand Forecasting - BS1808 Logistics and Supply Chain Analytics - Store 20974"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+<br />
+<br />
+
+
+
+
+##################################################################STORE 20974###################################################################
+
+
+###descritive###
+
+
+
+```{r}
+#loading the data for store 20974
+store20974 = read.csv('20974.csv', header = TRUE)
+```
+
+```{r}
+#make the importded data time series data (frequency=7 as weekly time intervals make it easier to read the data)
+ts_store20974 <- ts(store20974[,'total_lettuce'], frequency = 7)
+```
+
+
+```{r}
+#plotting the time series data
+plot.ts(ts_store20974, main='Store 20974: Lettuce Demand 20/03/2015-15/06/2015', xlab='Weeks', ylab='Lettuce Demand per Day in Ounces', col = 'blue')
+```
+
+```{r}
+#show histogram of the time series data to assess skewness/distribution
+hist(ts_store20974, main = 'Store 20974: Historgam of Lettuce Demand per Day', xlab='Lettuce Demand per Day in Ounces')
+```
+
+
+```{r}
+boxplot(ts_store20974, main = 'Store 20974: Boxplot of Lettuce Demand per Day')
+```
+```{r}
+#summary statistics of the time series data
+summary(ts_store20974)
+```
+
+```{r}
+#standard deviation of the time series data
+sd(ts_store20974)
+```
+
+###decomposition of original time series###
+
+```{r}
+ts_store20974_dec <- stl(ts_store20974, s.window ='periodic' , s.degree = 0) 
+plot(ts_store20974_dec, main = 'Store 20974: Decomposition of Time Series')
+```
+
+###Holt-Winters###
+
+```{r}
+# Application of Holt Winters Function
+ts_store20974_HW <- HoltWinters(ts_store20974, beta = FALSE) 
+ts_store20974_HW
+```
+alpha = level smoothing
+beta = trend smoothing
+gamma = seasonal smoothing
+
+```{r}
+#In-Sample Error of the Holt Winters Model
+sqrt(ts_store20974_HW$SSE/(length(ts_store20974)-2)) 
+```
+
+
+```{r}
+#ETS Function Application
+ts_store20974_ETS <- forecast:::ets(ts_store20974, model = "ZZZ")
+ts_store20974_ETS 
+```
+
+
+```{r}
+# In-Sample error ETS
+accuracy(ts_store20974_ETS)
+```
+
+
+
+```{r}
+# In-Sample Performance of Holt Winters and ETS
+plot(ts_store20974_HW, main='Holt-Winters and ETS In-Sample Comparison', xlab='Weeks', ylab='Lettuce Demand per Day in Ounces', col = 'black')
+lines(fitted(ts_store20974_ETS), col = 'yellow')
+legend('bottomright', legend=c('Original','HW', 'ETS'), col=c('black', 'red', 'yellow'), lty=c(1,1,1))
+```
+
+```{r}
+# to more reliably assess the accuracy of ETS and Holt Winter we need an out of sample error. Therefore, it makes sense to split the available data into a training and a validation data set (75%, 25%)
+```
+
+```{r}
+# training data
+ts_store20974_T<- ts(store20974[1:(nrow(store20974)*0.80),'total_lettuce'], frequency = 7)
+ts_store20974_T
+```
+
+```{r}
+# validation data
+ ts_store20974_V <- store20974[(nrow(store20974)*0.8+1):nrow(store20974),'total_lettuce']
+ ts_store20974_V
+```
+
+```{r}
+# Holts winter forecast with splitted data
+ts_store20974_HW_T <- HoltWinters(ts_store20974_T, beta = FALSE) 
+ts_store20974_HW_F <- forecast:::forecast.HoltWinters(ts_store20974_HW_T, h = 17)
+ts_store20974_HW_F 
+```
+
+```{r}
+# Holt Winter Forecast Splitted Data
+plot(ts_store20974_HW_F, main = 'Store 20974: Holt Winters Forecast with Splitted Data', xlab='Time', ylab='Lettuce Demand per Day in Ounces', col = 'black') 
+lines(fitted(ts_store20974_HW_F), col = "skyblue3") 
+legend('bottomright', legend=c('True','Forecasted values', 'Fitted values'), col=c('black', 'skyblue3', 'blue'), lty=c(1,1,1))
+```
+
+
+```{r}
+#accuracy of the Holt Winters soplitted data forecast
+accuracy(ts_store20974_HW_F, ts_store20974_V) 
+```
+
+
+```{r}
+# ETS forecast with splitted data
+ts_store20974_ETS_T <- ets(ts_store20974_T, model = "ANA")
+ts_store20974_ETS_F <- forecast.ets(ts_store20974_ETS_T, h = 17)
+```
+
+```{r}
+# ETS Forecast Splitted Data
+plot(ts_store20974_ETS_F, main = 'Store 20974: ETS Forecast with Splitted Data', xlab='Time', ylab='Lettuce Demand per Day in Ounces', col = 'black') 
+lines(fitted(ts_store20974_ETS_F), col = "skyblue3") 
+legend('bottomright', legend=c('True','Forecasted values', 'Fitted values'), col=c('black', 'skyblue3', 'blue'), lty=c(1,1,1))
+```
+
+```{r}
+#accuracy of the ETS splitted data forecast
+accuracy(ts_store20974_ETS_F, ts_store20974_V) 
+```
+
+
+```{r}
+# Train Model for 14 days Holt Winters Forecast
+ts_store20974_ETS_Forecast <- forecast.ets(ts_store20974_ETS, h = 14)
+ts_store20974_ETS_Forecast
+```
+
+```{r}
+#ETS Forecast
+plot(ts_store20974_ETS_Forecast, main = 'ETS Forecast', xlab='Time', ylab='Lettuce Demand per Day in Ounces', lty = 1, col = "black")
+lines(fitted(ts_store20974_ETS_Forecast), col = 'skyblue3') 
+legend('bottomright', legend=c('True','Forecasted values', 'Fitted values'), col=c('black', 'skyblue3', 'blue'), lty=c(1,1,1))
+```
+
+```{r}
+plot(acf(ts_store20974_ETS_Forecast$residuals,main = 'ETS Forecast', lag.max=20), main = 'ACF of ETS') 
+```
+
+
+```{r}
+plot.ts(ts_store20974_ETS_Forecast$residuals, main='ETS Forecast Error over time', xlab='Time', ylab='Residuals', col = 'darkblue')
+```
+
+
+```{r}
+# Ljung-Box Test to check whether the error is independently distributed
+Box.test(ts_store20974_ETS_Forecast$residuals, lag=20, type='Ljung-Box')
+```
+ Null Hypothesis: indendetly distributed data
+ p-value sufficently large => not rejecting the null hypothesis and therefore assume independence of the error term
+```{r}
+# Argumented Dickey Fuller Test to check whether data is stationary
+tseries::adf.test(ts_store20974_ETS_Forecast$residuals)
+```
+ Null Hypothesis: non-stationary
+ p-value< 0.05 => reject the null hypothesis at a significance level of 5% => stationary
+ 
+ 
+```{r}
+#Box-Pierce to check whether data is autocorrelated
+Box.test(ts_store20974_ETS_Forecast, type='Box-Pierce')
+```
+ Null Hypothesis: zero autocorrelation
+ p-value sufficently large => not rejecting the null hypothesis => no autocorrelation
+ 
+ 
+ ###ARIMA###
+ 
+ 
+ ###testing (stationarity, iid, autocorrelation)###
+
+```{r}
+# Ljung-Box Test to check whether data is independently distributed
+Box.test(ts_store20974, type='Ljung-Box')
+```
+ Null Hypothesis: indendetly distributed data
+ p-value very small => rejection of null hypothesis and therefore assume dependence
+ 
+```{r}
+# Argumented Dickey Fuller Test to check whether data is stationary
+tseries::adf.test(ts_store20974)
+```
+ Null Hypothesis: non-stationary
+ p-value smaller than printed p-value => reject the null hypothesis => stationary
+```{r}
+#KPSS test for level of stationarity
+kpss.test(ts_store20974)
+```
+
+```{r}
+#Box-Pierce to check whether data is autocorrelated
+Box.test(ts_store20974, type='Box-Pierce')
+```
+ Null Hypothesis: zero autocorrelation
+ p-value very small => reject the null hypothesis => autocorrelation
+ 
+```{r}
+#Philips-Perron Test to check order/existence of autocorrelation
+tseries:::pp.test(ts_store20974)
+```
+ Null Hypothesis: non-stationary
+ p-value smaller than printed p-value => reject the null hypothesis => stationary
+
+```{r}
+#number of first order differences in order to make the time series stationary
+forecast:::ndiffs(ts_store20974)
+```
+```{r}
+#number of seasonal difference in order to make the time series stationary
+forecast:::nsdiffs(ts_store20974)
+```
+ 
+```{r}
+install.packages('forecast')
+library(forecast)
+```
+ 
+  
+ 
+```{r}
+# ACF of original time series
+ggAcf(ts_store20974, main = 'Store 20974: ACF of the Original Time Series Daily')
+```
+
+```{r}
+ggPacf(ts_store20974, main = 'Store 20974: PACF of the Original Time Series Daily')
+```
+
+
+
+
+
+
+
+```{r}
+# ACF of first differenced time series
+plot(acf(ts_store20974 , lag.max = 200), main = 'Store 20974: ACF of the First Differenced Time Series Weekly') 
+```
+
+```{r}
+# PACF of first differenced time series
+plot(pacf(ts_store20974 , lag.max = 200), main = 'Store 20974: ACF of the First Differenced Time Series Weekly') 
+```
+ 
+
+```{r}
+#auto ARIMA
+forecast:::auto.arima(ts_store20974, trace = TRUE, ic = 'bic', approximation = FALSE)
+```
+ 
+```{r}
+#Fitting training data set on ARIMA option 1 
+ts_store20974_ARIMA1_T <- Arima(ts_store20974_T, order = c(0, 0, 1),seasonal = list(order = c(0, 0, 0), period = 7)) 
+```
+ 
+```{r}
+#Forecasting training data set for ARIMA option 1
+ts_store20974_ARIMA1_T_F<- forecast:::forecast.Arima(ts_store20974_ARIMA1_T, h = 17)
+```
+
+```{r}
+# Accuracy Forecasting training data set for ARIMA option 1
+forecast:::accuracy(ts_store20974_ARIMA1_T_F, ts_store20974_V) 
+```
+
+ 
+```{r}
+#Fitting training data set on ARIMA option 2 
+ts_store20974_ARIMA2_T <- Arima(ts_store20974_T, order = c(1, 0, 0),seasonal = list(order = c(1, 0, 0), period = 7))
+```
+ 
+```{r}
+#Forecasting training data set for ARIMA option 2
+ts_store20974_ARIMA2_T_F<- forecast:::forecast.Arima(ts_store20974_ARIMA2_T, h = 17)
+```
+
+
+```{r}
+# Accuracy Forecasting training data set for ARIMA option 2
+forecast:::accuracy(ts_store20974_ARIMA2_T_F, ts_store20974_V) 
+```
+
+ 
+```{r}
+#Fitting training data set on ARIMA option 3
+ts_store20974_ARIMA3_T<- Arima(ts_store20974_T, order = c(0, 0, 1),seasonal = list(order = c(1, 0, 1), period = 7))
+```
+ 
+ 
+```{r}
+#Forecasting training data set for ARIMA option 3
+ts_store20974_ARIMA3_T_F<- forecast:::forecast.Arima(ts_store20974_ARIMA3_T, h = 17)
+```
+ 
+```{r}
+# Accuracy Forecasting training data set for ARIMA option 3
+forecast:::accuracy(ts_store20974_ARIMA3_T_F, ts_store20974_V) 
+```
+
+ 
+```{r}
+#complete 14 days forecast with ARIMA1
+ts_store20974_ARIMA1_C <- Arima(ts_store20974, order = c(0, 0, 1),seasonal = list(order = c(1, 0, 1), period = 7))
+ts_store20974_ARIMA1_CF<- forecast:::forecast.Arima(ts_store20974_ARIMA1_C, h = 14)
+ts_store20974_ARIMA1_CF
+```
+
+
+
+
+```{r}
+#plotting complete 14 day ARIMA1 forecast
+#ETS Forecast
+plot(ts_store20974_ARIMA1_CF, main = 'ARMIA(0,0,1)(1,0,1)(7) Forecast', xlab='Time', ylab='Lettuce Demand per Day in Ounces', lty = 1, col = "black")
+lines(fitted(ts_store20974_ARIMA1_CF), col = 'skyblue3') 
+legend('bottomright', legend=c('True','Forecasted values', 'Fitted values'), col=c('black', 'skyblue3', 'blue'), lty=c(1,1,1))
+
+```
+
+```{r}
+plot(acf(ts_store20974_ARIMA1_CF$residuals,main = 'Autocorrelation of ARIMA (0,0,1)(1,0,1)(7) Residuals ', lag.max=20)) 
+```
+ 
+
+
+
+```{r}
+plot.ts(ts_store20974_ARIMA1_CF$residuals, main=' ARMIA(0,0,1)(1,0,1)(7) Forecast Error over time', xlab='Time', ylab='Residuals', col = 'darkblue')
+```
+ 
+```{r}
+# Ljung-Box Test to check whether the error is independently distributed
+Box.test(ts_store20974_ARIMA1_CF$residuals, lag=20, type='Ljung-Box')
+```
+
+
+```{r}
+# Argumented Dickey Fuller Test to check whether data is stationary
+tseries::adf.test(ts_store20974_ARIMA1_CF$residuals)
+```
+
+
+
+
+```{r}
+#Box-Pierce to check whether data is autocorrelated
+Box.test(ts_store20974_ARIMA1_CF$residuals, type='Box-Pierce')
+```
+
+
+```{r}
+#conductiong the final 14 days forecast
+store20974_RESULTS <- forecast:::forecast.ets(ts_store20974_ETS, h = 14)
+store20974_RESULTS 
+```
+
+```{r}
+#save the results as CSV
+write.csv(store20974_RESULTS, 'store20974_RESULTS.csv')
+```
+
+ 
